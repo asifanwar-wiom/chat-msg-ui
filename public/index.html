@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chat Messages</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #e5ddd5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* Search bar */
+    .search-bar {
+      width: 100%;
+      max-width: 600px;
+      background: #075e54;
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+
+    .search-bar h2 {
+      color: #fff;
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .search-fields {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .search-fields input {
+      flex: 1;
+      min-width: 140px;
+      padding: 9px 14px;
+      border: none;
+      border-radius: 20px;
+      font-size: 14px;
+      outline: none;
+      background: rgba(255,255,255,0.9);
+    }
+
+    .search-fields input::placeholder { color: #999; }
+
+    .search-fields button {
+      padding: 9px 22px;
+      border: none;
+      border-radius: 20px;
+      background: #25d366;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .search-fields button:hover { background: #1ebe5d; }
+    .search-fields button:disabled { background: #888; cursor: not-allowed; }
+
+    /* Chat header */
+    .chat-header {
+      width: 100%;
+      max-width: 600px;
+      background: #064d44;
+      color: #fff;
+      padding: 10px 20px;
+      font-size: 14px;
+      display: none;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .chat-header .avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: #25d366;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .chat-header .info { display: flex; flex-direction: column; flex: 1; }
+    .chat-header .info .name { font-size: 15px; font-weight: 600; }
+    .chat-header .info .detail { font-size: 11px; opacity: 0.8; }
+
+    .lang-global-toggle {
+      display: flex;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    .lang-global-toggle button {
+      padding: 5px 14px;
+      border: 2px solid rgba(255,255,255,0.4);
+      border-radius: 16px;
+      background: transparent;
+      color: rgba(255,255,255,0.7);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .lang-global-toggle button.active {
+      background: #25d366;
+      border-color: #25d366;
+      color: #fff;
+    }
+
+    /* Chat container */
+    .chat-container {
+      width: 100%;
+      max-width: 600px;
+      flex: 1;
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      background: #e5ddd5 url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ccc' fill-opacity='0.15'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #888;
+      font-size: 15px;
+    }
+
+    .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+
+    /* Date divider */
+    .date-divider {
+      text-align: center;
+      margin: 10px 0 6px;
+    }
+
+    .date-divider span {
+      background: #e1f2fb;
+      color: #555;
+      font-size: 12px;
+      padding: 4px 12px;
+      border-radius: 6px;
+      box-shadow: 0 1px 1px rgba(0,0,0,0.1);
+    }
+
+    /* Messages */
+    .message {
+      max-width: 80%;
+      padding: 8px 12px;
+      border-radius: 8px;
+      position: relative;
+      line-height: 1.45;
+      font-size: 14px;
+      word-wrap: break-word;
+      box-shadow: 0 1px 1px rgba(0,0,0,0.12);
+    }
+
+    .message.left {
+      align-self: flex-start;
+      background: #fff;
+      border-top-left-radius: 0;
+    }
+
+    .message.right {
+      align-self: flex-end;
+      background: #dcf8c6;
+      border-top-right-radius: 0;
+    }
+
+    .message .sender-label {
+      font-size: 11px;
+      font-weight: 700;
+      margin-bottom: 3px;
+      text-transform: uppercase;
+    }
+
+    .message.left .sender-label { color: #075e54; }
+    .message.right .sender-label { color: #6b4f1d; }
+
+    .message .workflow-tag {
+      font-size: 10px;
+      color: #888;
+      margin-bottom: 4px;
+      font-style: italic;
+    }
+
+    .message .text { color: #111; white-space: pre-wrap; }
+
+    .message .timestamp {
+      font-size: 10px;
+      color: #999;
+      text-align: right;
+      margin-top: 4px;
+    }
+
+
+    .cta-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .cta-buttons button {
+      padding: 6px 14px;
+      font-size: 13px;
+      border: none;
+      border-radius: 18px;
+      background: #075e54;
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .cta-buttons button:hover { background: #064d44; }
+
+    .cta-action-label {
+      font-size: 10px;
+      color: #888;
+      margin-top: 2px;
+      text-align: center;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #888;
+      font-size: 15px;
+    }
+
+    .error {
+      text-align: center;
+      padding: 40px;
+      color: #c0392b;
+      font-size: 14px;
+    }
+
+    .msg-count {
+      text-align: center;
+      font-size: 12px;
+      color: #777;
+      padding: 6px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="search-bar">
+    <h2>Message Viewer</h2>
+    <div class="search-fields">
+      <input type="text" id="mobileInput" placeholder="Mobile number" />
+      <input type="text" id="accountInput" placeholder="Account ID" />
+      <button id="fetchBtn" onclick="loadMessages()">Fetch</button>
+    </div>
+  </div>
+
+  <div class="chat-header" id="chatHeader">
+    <div class="avatar">U</div>
+    <div class="info">
+      <span class="name" id="headerName"></span>
+      <span class="detail" id="headerDetail"></span>
+    </div>
+    <div class="lang-global-toggle" id="globalLangToggle">
+      <button class="active" onclick="setGlobalLang('hi')">HI</button>
+      <button onclick="setGlobalLang('en')">EN</button>
+    </div>
+  </div>
+
+  <div class="chat-container" id="chat">
+    <div class="empty-state">
+      <div class="icon">💬</div>
+      Enter a mobile number and/or account ID to load messages
+    </div>
+  </div>
+
+  <script>
+    const BASE_URL = '/api/messages';
+    let currentLang = 'hi';
+    let allMessageElements = []; // stores { el, msgList } for global lang switch
+
+    // Pre-fill from URL params
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('mobile')) document.getElementById('mobileInput').value = urlParams.get('mobile');
+    if (urlParams.get('accountId')) document.getElementById('accountInput').value = urlParams.get('accountId');
+
+    // Auto-load if params present
+    if (urlParams.get('mobile') || urlParams.get('accountId')) {
+      loadMessages();
+    }
+
+    async function loadMessages() {
+      const mobile = document.getElementById('mobileInput').value.trim();
+      const accountId = document.getElementById('accountInput').value.trim();
+
+      if (!mobile && !accountId) {
+        alert('Please enter a mobile number or account ID');
+        return;
+      }
+
+      // Build query params
+      const params = new URLSearchParams();
+      if (mobile) params.set('mobile', mobile);
+      if (accountId) params.set('accountId', accountId);
+
+      // Update browser URL without reload
+      const newUrl = `${window.location.pathname}?${params.toString()}`;
+      window.history.replaceState(null, '', newUrl);
+
+      // Update header
+      const header = document.getElementById('chatHeader');
+      header.style.display = 'flex';
+      document.getElementById('headerName').textContent = mobile || 'Unknown';
+      document.getElementById('headerDetail').textContent = accountId ? `Account: ${accountId}` : '';
+
+      const chat = document.getElementById('chat');
+      chat.innerHTML = '<div class="loading">Loading messages...</div>';
+
+      const btn = document.getElementById('fetchBtn');
+      btn.disabled = true;
+      btn.textContent = 'Loading...';
+
+      try {
+        const res = await fetch(`${BASE_URL}?${params.toString()}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const messages = await res.json();
+
+        if (!messages.length) {
+          chat.innerHTML = '<div class="empty-state"><div class="icon">📭</div>No messages found</div>';
+          return;
+        }
+
+        // Sort oldest first
+        messages.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+        chat.innerHTML = '';
+        allMessageElements = [];
+
+        // Message count
+        const countDiv = document.createElement('div');
+        countDiv.className = 'msg-count';
+        countDiv.textContent = `${messages.length} messages`;
+        chat.appendChild(countDiv);
+
+        let lastDate = '';
+
+        messages.forEach((msg) => {
+          const date = new Date(msg.created_at);
+          const dateStr = date.toLocaleDateString('en-IN', {
+            day: '2-digit', month: 'short', year: 'numeric'
+          });
+
+          // Date divider
+          if (dateStr !== lastDate) {
+            lastDate = dateStr;
+            const divider = document.createElement('div');
+            divider.className = 'date-divider';
+            divider.innerHTML = `<span>${dateStr}</span>`;
+            chat.appendChild(divider);
+          }
+
+          const isUser = msg.sender === 'user';
+          const side = isUser ? 'right' : 'left';
+
+          const el = document.createElement('div');
+          el.className = `message ${side}`;
+
+          // Sender label
+          const senderLabel = document.createElement('div');
+          senderLabel.className = 'sender-label';
+          senderLabel.textContent = msg.sender;
+          el.appendChild(senderLabel);
+
+          // Workflow tag
+          if (msg.work_flow) {
+            const wf = document.createElement('div');
+            wf.className = 'workflow-tag';
+            wf.textContent = msg.work_flow;
+            el.appendChild(wf);
+          }
+
+          const msgList = msg.final_message_list || [];
+
+          // Text container
+          const textDiv = document.createElement('div');
+          textDiv.className = 'text';
+          textDiv.setAttribute('data-text-container', '');
+          el.appendChild(textDiv);
+
+          // CTA container
+          const ctaDiv = document.createElement('div');
+          ctaDiv.className = 'cta-buttons';
+          ctaDiv.setAttribute('data-cta-container', '');
+          el.appendChild(ctaDiv);
+
+          // Timestamp
+          const ts = document.createElement('div');
+          ts.className = 'timestamp';
+          ts.textContent = date.toLocaleTimeString('en-IN', {
+            hour: '2-digit', minute: '2-digit', hour12: true
+          });
+          el.appendChild(ts);
+
+          chat.appendChild(el);
+
+          // Store ref for global lang switch and show current lang
+          allMessageElements.push({ el, msgList });
+          if (msgList.length > 0) {
+            showLang(el, msgList, currentLang);
+          }
+        });
+
+        window.scrollTo(0, document.body.scrollHeight);
+      } catch (err) {
+        chat.innerHTML = `<div class="error">Failed to load messages<br/>${err.message}</div>`;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Fetch';
+      }
+    }
+
+    function setGlobalLang(lang) {
+      currentLang = lang;
+      // Update toggle buttons
+      document.querySelectorAll('#globalLangToggle button').forEach(btn => {
+        btn.classList.toggle('active', btn.textContent.toLowerCase() === lang);
+      });
+      // Update all messages
+      allMessageElements.forEach(({ el, msgList }) => {
+        showLang(el, msgList, lang);
+      });
+    }
+
+    function showLang(el, msgList, lang) {
+      const item = msgList.find(m => m.language === lang);
+      if (!item) return;
+
+      const textDiv = el.querySelector('[data-text-container]');
+      const ctaDiv = el.querySelector('[data-cta-container]');
+
+      let text = item.content?.text || '';
+      if (item.content?.replyText) {
+        textDiv.innerHTML =
+          `<div style="border-left:3px solid #075e54;padding:4px 8px;margin-bottom:6px;background:#f0f0f0;border-radius:4px;font-size:12px;color:#555">${formatText(item.content.replyText)}</div>${formatText(text)}`;
+      } else {
+        textDiv.innerHTML = formatText(text);
+      }
+
+      // CTAs
+      ctaDiv.innerHTML = '';
+      if (item.ctas && item.ctas.length > 0) {
+        item.ctas.forEach(cta => {
+          const wrapper = document.createElement('div');
+          wrapper.style.cssText = 'display:flex;flex-direction:column;align-items:center';
+
+          const btn = document.createElement('button');
+          btn.textContent = cta.label;
+          wrapper.appendChild(btn);
+
+          const actionLabel = document.createElement('div');
+          actionLabel.className = 'cta-action-label';
+          actionLabel.textContent = cta.action;
+          wrapper.appendChild(actionLabel);
+
+          ctaDiv.appendChild(wrapper);
+        });
+      }
+    }
+
+    function formatText(text) {
+      return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    }
+
+    // Enter key to fetch
+    document.querySelectorAll('.search-fields input').forEach(input => {
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') loadMessages();
+      });
+    });
+  </script>
+</body>
+</html>
