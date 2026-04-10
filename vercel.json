@@ -1,5 +1,7 @@
 {
+  "cleanUrls": true,
   "rewrites": [
-    { "source": "/api/messages", "destination": "/api/messages" }
+    { "source": "/api/messages", "destination": "/api/messages" },
+    { "source": "/api/messages-qa", "destination": "/api/messages-qa" }
   ]
 }

@@ -1,8 +1,8 @@
 const https = require('https');
 
-// All secrets from environment variables — nothing in code
-const UPSTREAM_URL = process.env.UPSTREAM_API_URL;
-const PASSWORD = process.env.APP_PASSWORD;
+const UPSTREAM_URL = process.env.UPSTREAM_API_URL_QA
+  || 'https://message-orchestrator-service.qa.i2e1.in/v1/messages';
+const PASSWORD = process.env.APP_PASSWORD_QA || process.env.APP_PASSWORD;
 
 module.exports = (req, res) => {
   // Only allow GET

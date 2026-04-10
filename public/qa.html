@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Chat Messages</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23075e54'/><path d='M20 25 Q20 15 30 15 L70 15 Q80 15 80 25 L80 60 Q80 70 70 70 L55 70 L45 85 L45 70 L30 70 Q20 70 20 60 Z' fill='%2325d366'/></svg>" />
+  <title>Chat Messages [QA]</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23b45309'/><path d='M20 25 Q20 15 30 15 L70 15 Q80 15 80 25 L80 60 Q80 70 70 70 L55 70 L45 85 L45 70 L30 70 Q20 70 20 60 Z' fill='%23fbbf24'/></svg>" />
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -17,11 +17,25 @@
       align-items: center;
     }
 
+    /* QA banner */
+    .qa-banner {
+      width: 100%;
+      max-width: 600px;
+      background: #92400e;
+      color: #fef3c7;
+      text-align: center;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      padding: 4px 0;
+    }
+
     /* Search bar */
     .search-bar {
       width: 100%;
       max-width: 600px;
-      background: #075e54;
+      background: #b45309;
       padding: 16px 20px;
       display: flex;
       flex-direction: column;
@@ -35,6 +49,19 @@
       color: #fff;
       font-size: 18px;
       font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .search-bar h2 .qa-badge {
+      background: #fbbf24;
+      color: #92400e;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 2px 8px;
+      border-radius: 10px;
+      letter-spacing: 0.5px;
     }
 
     .search-fields {
@@ -60,22 +87,22 @@
       padding: 9px 22px;
       border: none;
       border-radius: 20px;
-      background: #25d366;
-      color: #fff;
+      background: #fbbf24;
+      color: #92400e;
       font-size: 14px;
-      font-weight: 600;
+      font-weight: 700;
       cursor: pointer;
       transition: background 0.2s;
     }
 
-    .search-fields button:hover { background: #1ebe5d; }
-    .search-fields button:disabled { background: #888; cursor: not-allowed; }
+    .search-fields button:hover { background: #f59e0b; }
+    .search-fields button:disabled { background: #888; color: #fff; cursor: not-allowed; }
 
     /* Chat header */
     .chat-header {
       width: 100%;
       max-width: 600px;
-      background: #064d44;
+      background: #92400e;
       color: #fff;
       padding: 10px 20px;
       font-size: 14px;
@@ -88,12 +115,13 @@
       width: 34px;
       height: 34px;
       border-radius: 50%;
-      background: #25d366;
+      background: #fbbf24;
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 16px;
       font-weight: 700;
+      color: #92400e;
       flex-shrink: 0;
     }
 
@@ -120,9 +148,9 @@
     }
 
     .lang-global-toggle button.active {
-      background: #25d366;
-      border-color: #25d366;
-      color: #fff;
+      background: #fbbf24;
+      border-color: #fbbf24;
+      color: #92400e;
     }
 
     /* Chat container */
@@ -181,7 +209,7 @@
 
     .message.right {
       align-self: flex-end;
-      background: #dcf8c6;
+      background: #fef3c7;
       border-top-right-radius: 0;
     }
 
@@ -192,8 +220,8 @@
       text-transform: uppercase;
     }
 
-    .message.left .sender-label { color: #075e54; }
-    .message.right .sender-label { color: #6b4f1d; }
+    .message.left .sender-label { color: #b45309; }
+    .message.right .sender-label { color: #92400e; }
 
     .message .workflow-tag {
       font-size: 10px;
@@ -211,7 +239,6 @@
       margin-top: 4px;
     }
 
-
     .cta-buttons {
       display: flex;
       flex-wrap: wrap;
@@ -224,13 +251,13 @@
       font-size: 13px;
       border: none;
       border-radius: 18px;
-      background: #075e54;
+      background: #b45309;
       color: #fff;
       cursor: pointer;
       transition: background 0.2s;
     }
 
-    .cta-buttons button:hover { background: #064d44; }
+    .cta-buttons button:hover { background: #92400e; }
 
     .cta-action-label {
       font-size: 10px;
@@ -264,7 +291,7 @@
     .password-overlay {
       position: fixed;
       inset: 0;
-      background: #075e54;
+      background: #b45309;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -281,9 +308,21 @@
     }
 
     .password-box h2 {
-      color: #075e54;
-      margin-bottom: 6px;
+      color: #b45309;
+      margin-bottom: 4px;
       font-size: 20px;
+    }
+
+    .password-box .qa-tag {
+      display: inline-block;
+      background: #fbbf24;
+      color: #92400e;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 2px 10px;
+      border-radius: 10px;
+      margin-bottom: 10px;
+      letter-spacing: 0.5px;
     }
 
     .password-box p {
@@ -302,7 +341,7 @@
       transition: border-color 0.2s;
     }
 
-    .password-box input:focus { border-color: #075e54; }
+    .password-box input:focus { border-color: #b45309; }
 
     .password-box input.error { border-color: #e74c3c; }
 
@@ -319,15 +358,15 @@
       padding: 10px;
       border: none;
       border-radius: 8px;
-      background: #25d366;
-      color: #fff;
+      background: #fbbf24;
+      color: #92400e;
       font-size: 15px;
-      font-weight: 600;
+      font-weight: 700;
       cursor: pointer;
       transition: background 0.2s;
     }
 
-    .password-box button:hover { background: #1ebe5d; }
+    .password-box button:hover { background: #f59e0b; }
 
     .app-content { display: none; }
     .app-content.visible { display: contents; }
@@ -424,17 +463,6 @@
 </head>
 <body>
 
-  <!-- Password Screen -->
-  <div class="password-overlay" id="passwordOverlay">
-    <div class="password-box">
-      <h2>Message Viewer</h2>
-      <p>Enter password to continue</p>
-      <input type="password" id="passwordInput" placeholder="Password" />
-      <div class="error-msg" id="pwdError">Incorrect password</div>
-      <button onclick="checkPassword()">Enter</button>
-    </div>
-  </div>
-
   <!-- JSON Modal -->
   <div class="json-modal-overlay" id="jsonModal" style="display:none" onclick="closeModal(event)">
     <div class="json-modal">
@@ -449,10 +477,24 @@
     </div>
   </div>
 
+  <!-- Password Screen -->
+  <div class="password-overlay" id="passwordOverlay">
+    <div class="password-box">
+      <h2>Message Viewer</h2>
+      <div class="qa-tag">QA Environment</div>
+      <p>Enter password to continue</p>
+      <input type="password" id="passwordInput" placeholder="Password" />
+      <div class="error-msg" id="pwdError">Incorrect password</div>
+      <button onclick="checkPassword()">Enter</button>
+    </div>
+  </div>
+
   <!-- App Content (hidden until authenticated) -->
   <div class="app-content" id="appContent">
+    <div class="qa-banner">QA Environment — message-orchestrator-service.qa.i2e1.in</div>
+
     <div class="search-bar">
-      <h2>Message Viewer</h2>
+      <h2>Message Viewer <span class="qa-badge">QA</span></h2>
       <div class="search-fields">
         <input type="text" id="mobileInput" placeholder="Mobile number" />
         <input type="text" id="accountInput" placeholder="Account ID" />
@@ -481,11 +523,11 @@
   </div>
 
   <script>
-    const BASE_URL = '/api/messages';
+    const BASE_URL = '/api/messages-qa';
     const PAGE_SIZE = 50;
     let currentLang = 'hi';
     let allMessageElements = [];
-    let authToken = localStorage.getItem('msg_viewer_token') || '';
+    let authToken = localStorage.getItem('msg_viewer_token_qa') || '';
     let isLoading = false;
 
     // Check if already authenticated
@@ -510,7 +552,7 @@
             errMsg.style.display = 'block';
           } else {
             authToken = pwd;
-            localStorage.setItem('msg_viewer_token', pwd);
+            localStorage.setItem('msg_viewer_token_qa', pwd);
             unlock();
           }
         })
@@ -598,7 +640,6 @@
         }
 
         // Sort ALL messages globally by created_at ascending
-        // String comparison works correctly for ISO 8601 timestamps (incl. microseconds)
         allMessages.sort((a, b) => {
           if (a.created_at < b.created_at) return -1;
           if (a.created_at > b.created_at) return 1;
@@ -707,7 +748,7 @@
       let text = item.content?.text || '';
       if (item.content?.replyText) {
         textDiv.innerHTML =
-          `<div style="border-left:3px solid #075e54;padding:4px 8px;margin-bottom:6px;background:#f0f0f0;border-radius:4px;font-size:12px;color:#555">${formatText(item.content.replyText)}</div>${formatText(text)}`;
+          `<div style="border-left:3px solid #b45309;padding:4px 8px;margin-bottom:6px;background:#f0f0f0;border-radius:4px;font-size:12px;color:#555">${formatText(item.content.replyText)}</div>${formatText(text)}`;
       } else {
         textDiv.innerHTML = formatText(text);
       }
