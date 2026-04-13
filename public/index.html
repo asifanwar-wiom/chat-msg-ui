@@ -623,7 +623,7 @@
             chat.appendChild(divider);
           }
 
-          const isUser = msg.sender === 'user';
+          const isUser = msg.sender === 'user' || msg.sender === 'CUSTOMER';
           const side = isUser ? 'right' : 'left';
 
           const el = document.createElement('div');
