@@ -529,6 +529,10 @@
     let allMessageElements = [];
     let authToken = localStorage.getItem('msg_viewer_token_qa') || '';
     let isLoading = false;
+    const messageCache = {};
+    let isLoadingMore = false;
+    let currentCacheKey = '';
+    let scrollObserver = null;
 
     // Check if already authenticated
     if (authToken) {
@@ -575,7 +579,7 @@
       }
     }
 
-    // Fetch all pages, sort globally, render once
+    // Fetch first page, cache it, render, attach scroll observer
     async function loadMessages() {
       if (isLoading) return;
       allMessageElements = [];
@@ -587,6 +591,11 @@
         alert('Please enter a mobile number or account ID');
         return;
       }
+
+      currentCacheKey = `${mobile}:${accountId}`;
+
+      // Disconnect existing observer
+      if (scrollObserver) scrollObserver.disconnect();
 
       // Update browser URL
       const urlP = new URLSearchParams();
@@ -600,6 +609,16 @@
       document.getElementById('headerDetail').textContent = accountId ? `Account: ${accountId}` : '';
 
       const chat = document.getElementById('chat');
+
+      // Check cache hit
+      if (messageCache[currentCacheKey]) {
+        const entry = messageCache[currentCacheKey];
+        renderMessages(entry.messages, entry.done);
+        attachScrollObserver(currentCacheKey);
+        return;
+      }
+
+      // Cache miss: fetch page 0 only
       chat.innerHTML = '<div class="loading">Loading messages...</div>';
 
       const btn = document.getElementById('fetchBtn');
@@ -608,29 +627,18 @@
       isLoading = true;
 
       try {
-        // Fetch ALL pages and accumulate
-        const allMessages = [];
-        let page = 0;
+        const params = new URLSearchParams();
+        if (mobile) params.set('mobile', mobile);
+        if (accountId) params.set('accountId', accountId);
+        params.set('token', authToken);
+        params.set('page', 0);
+        params.set('size', PAGE_SIZE);
 
-        while (true) {
-          const params = new URLSearchParams();
-          if (mobile) params.set('mobile', mobile);
-          if (accountId) params.set('accountId', accountId);
-          params.set('token', authToken);
-          params.set('page', page);
-          params.set('size', PAGE_SIZE);
+        const res = await fetch(`${BASE_URL}?${params.toString()}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const messages = await res.json();
 
-          const res = await fetch(`${BASE_URL}?${params.toString()}`);
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const messages = await res.json();
-
-          if (!messages || messages.length === 0) break;
-          allMessages.push(...messages);
-          if (messages.length < PAGE_SIZE) break;
-          page++;
-        }
-
-        if (allMessages.length === 0) {
+        if (!messages || messages.length === 0) {
           chat.innerHTML = `
             <div class="empty-state">
               <div class="icon">📭</div>
@@ -639,18 +647,188 @@
           return;
         }
 
-        // Sort ALL messages globally by created_at ascending
-        allMessages.sort((a, b) => {
+        // Sort messages by created_at ascending
+        messages.sort((a, b) => {
           if (a.created_at < b.created_at) return -1;
           if (a.created_at > b.created_at) return 1;
           return 0;
         });
 
-        // Render all messages
-        chat.innerHTML = '';
-        let lastDate = '';
+        // Store in cache
+        const isDone = messages.length < PAGE_SIZE;
+        messageCache[currentCacheKey] = {
+          messages: messages,
+          nextPage: 1,
+          done: isDone
+        };
 
-        allMessages.forEach((msg) => {
+        // Render and attach observer
+        renderMessages(messages, isDone);
+        attachScrollObserver(currentCacheKey);
+
+      } catch (err) {
+        chat.innerHTML = `<div class="error">Failed to load messages<br/>${err.message}</div>`;
+      } finally {
+        isLoading = false;
+        btn.disabled = false;
+        btn.textContent = 'Fetch';
+      }
+    }
+
+    // Render all messages from the messages array
+    function renderMessages(messages, isDone) {
+      const chat = document.getElementById('chat');
+      chat.innerHTML = '';
+      let lastDate = '';
+
+      messages.forEach((msg) => {
+        const date = new Date(msg.created_at);
+        const dateStr = date.toLocaleDateString('en-IN', {
+          day: '2-digit', month: 'short', year: 'numeric'
+        });
+
+        if (dateStr !== lastDate) {
+          lastDate = dateStr;
+          const divider = document.createElement('div');
+          divider.className = 'date-divider';
+          divider.innerHTML = `<span>${dateStr}</span>`;
+          chat.appendChild(divider);
+        }
+
+        const isUser = msg.sender === 'user' || msg.sender === 'CUSTOMER';
+        const side = isUser ? 'right' : 'left';
+
+        const el = document.createElement('div');
+        el.className = `message ${side}`;
+
+        const senderLabel = document.createElement('div');
+        senderLabel.className = 'sender-label';
+        senderLabel.textContent = msg.sender;
+        el.appendChild(senderLabel);
+
+        if (msg.work_flow) {
+          const wf = document.createElement('div');
+          wf.className = 'workflow-tag';
+          wf.textContent = msg.work_flow;
+          el.appendChild(wf);
+        }
+
+        const msgList = msg.final_message_list || [];
+
+        const textDiv = document.createElement('div');
+        textDiv.className = 'text';
+        textDiv.setAttribute('data-text-container', '');
+        el.appendChild(textDiv);
+
+        const ctaDiv = document.createElement('div');
+        ctaDiv.className = 'cta-buttons';
+        ctaDiv.setAttribute('data-cta-container', '');
+        el.appendChild(ctaDiv);
+
+        const ts = document.createElement('div');
+        ts.className = 'timestamp';
+        const ms = String(date.getMilliseconds()).padStart(3, '0');
+        ts.textContent = date.toLocaleTimeString('en-IN', {
+          hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
+        }) + `.${ms}`;
+        el.appendChild(ts);
+
+        el.addEventListener('click', () => openModal(msg));
+        chat.appendChild(el);
+
+        allMessageElements.push({ el, msgList });
+        if (msgList.length > 0) {
+          showLang(el, msgList, currentLang);
+        }
+      });
+
+      // Add count and sentinel or "all loaded" footer
+      const countMsg = document.createElement('div');
+      countMsg.className = 'msg-count';
+      countMsg.textContent = `${messages.length} messages loaded`;
+      chat.appendChild(countMsg);
+
+      if (!isDone) {
+        const sentinel = document.createElement('div');
+        sentinel.id = 'loadMoreSentinel';
+        sentinel.className = 'loading';
+        sentinel.textContent = 'Scroll down to load more...';
+        chat.appendChild(sentinel);
+      } else {
+        const doneMsg = document.createElement('div');
+        doneMsg.className = 'msg-count';
+        doneMsg.textContent = 'All messages loaded';
+        chat.appendChild(doneMsg);
+      }
+    }
+
+    // Attach intersection observer to sentinel for lazy loading
+    function attachScrollObserver(cacheKey) {
+      const sentinel = document.getElementById('loadMoreSentinel');
+      if (!sentinel) return;
+
+      scrollObserver = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting) {
+          loadMoreMessages(cacheKey);
+        }
+      }, { threshold: 0.1 });
+
+      scrollObserver.observe(sentinel);
+    }
+
+    // Fetch next page and append messages
+    async function loadMoreMessages(cacheKey) {
+      const entry = messageCache[cacheKey];
+      if (!entry || entry.done || isLoadingMore) return;
+
+      isLoadingMore = true;
+      const sentinel = document.getElementById('loadMoreSentinel');
+      if (sentinel) sentinel.textContent = 'Loading...';
+
+      const [mobile, accountId] = cacheKey.split(':');
+
+      try {
+        const params = new URLSearchParams();
+        if (mobile) params.set('mobile', mobile);
+        if (accountId) params.set('accountId', accountId);
+        params.set('token', authToken);
+        params.set('page', entry.nextPage);
+        params.set('size', PAGE_SIZE);
+
+        const res = await fetch(`${BASE_URL}?${params.toString()}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const newMsgs = await res.json();
+
+        if (!newMsgs || newMsgs.length === 0) {
+          entry.done = true;
+          if (sentinel) {
+            sentinel.remove();
+            const chat = document.getElementById('chat');
+            const doneMsg = document.createElement('div');
+            doneMsg.className = 'msg-count';
+            doneMsg.textContent = 'All messages loaded';
+            chat.appendChild(doneMsg);
+          }
+          return;
+        }
+
+        // Merge new messages and re-sort globally
+        entry.messages.push(...newMsgs);
+        entry.messages.sort((a, b) => {
+          if (a.created_at < b.created_at) return -1;
+          if (a.created_at > b.created_at) return 1;
+          return 0;
+        });
+
+        // Append only new messages to DOM (those not already rendered)
+        const chat = document.getElementById('chat');
+        const lastRenderedDate = allMessageElements.length > 0
+          ? new Date(allMessageElements[allMessageElements.length - 1].msgList[0]?.created_at || 0).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+          : '';
+
+        let lastDate = lastRenderedDate;
+
+        newMsgs.forEach((msg) => {
           const date = new Date(msg.created_at);
           const dateStr = date.toLocaleDateString('en-IN', {
             day: '2-digit', month: 'short', year: 'numeric'
@@ -661,7 +839,7 @@
             const divider = document.createElement('div');
             divider.className = 'date-divider';
             divider.innerHTML = `<span>${dateStr}</span>`;
-            chat.appendChild(divider);
+            sentinel.parentNode.insertBefore(divider, sentinel);
           }
 
           const isUser = msg.sender === 'user' || msg.sender === 'CUSTOMER';
@@ -703,7 +881,7 @@
           el.appendChild(ts);
 
           el.addEventListener('click', () => openModal(msg));
-          chat.appendChild(el);
+          sentinel.parentNode.insertBefore(el, sentinel);
 
           allMessageElements.push({ el, msgList });
           if (msgList.length > 0) {
@@ -711,20 +889,29 @@
           }
         });
 
-        const endMsg = document.createElement('div');
-        endMsg.className = 'msg-count';
-        endMsg.textContent = `${allMessages.length} messages loaded`;
-        chat.appendChild(endMsg);
+        // Update count
+        const countMsg = chat.querySelector('.msg-count');
+        if (countMsg) {
+          countMsg.textContent = `${entry.messages.length} messages loaded`;
+        }
 
-        // Scroll to bottom (newest message)
-        window.scrollTo(0, document.body.scrollHeight);
+        // Check if more pages exist
+        if (newMsgs.length < PAGE_SIZE) {
+          entry.done = true;
+          sentinel.remove();
+          const doneMsg = document.createElement('div');
+          doneMsg.className = 'msg-count';
+          doneMsg.textContent = 'All messages loaded';
+          chat.appendChild(doneMsg);
+        } else {
+          entry.nextPage++;
+          sentinel.textContent = 'Scroll down to load more...';
+        }
 
       } catch (err) {
-        chat.innerHTML = `<div class="error">Failed to load messages<br/>${err.message}</div>`;
+        if (sentinel) sentinel.textContent = `Error: ${err.message}`;
       } finally {
-        isLoading = false;
-        btn.disabled = false;
-        btn.textContent = 'Fetch';
+        isLoadingMore = false;
       }
     }
 
