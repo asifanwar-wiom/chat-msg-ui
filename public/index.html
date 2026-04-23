@@ -571,12 +571,12 @@
       // Check cache hit
       if (messageCache[currentCacheKey]) {
         const entry = messageCache[currentCacheKey];
-        renderMessages(entry.messages, entry.done);
+        renderMessages(entry.messages);
         attachScrollObserver(currentCacheKey);
         return;
       }
 
-      // Cache miss: fetch page 0 only
+      // Cache miss: fetch first batch of messages
       chat.innerHTML = '<div class="loading">Loading messages...</div>';
 
       const btn = document.getElementById('fetchBtn');
@@ -613,15 +613,12 @@
         });
 
         // Store in cache
-        const isDone = messages.length < PAGE_SIZE;
         messageCache[currentCacheKey] = {
-          messages: messages,
-          nextPage: 1,
-          done: isDone
+          messages: messages
         };
 
         // Render and attach observer
-        renderMessages(messages, isDone);
+        renderMessages(messages);
         attachScrollObserver(currentCacheKey);
 
       } catch (err) {
@@ -634,10 +631,11 @@
     }
 
     // Render all messages from the messages array
-    function renderMessages(messages, isDone) {
+    function renderMessages(messages) {
       const chat = document.getElementById('chat');
       chat.innerHTML = '';
       let lastDate = '';
+      allMessageElements = [];
 
       messages.forEach((msg) => {
         const date = new Date(msg.created_at);
@@ -706,51 +704,48 @@
       countMsg.textContent = `${messages.length} messages loaded`;
       chat.appendChild(countMsg);
 
-      if (!isDone) {
-        const sentinel = document.createElement('div');
-        sentinel.id = 'loadMoreSentinel';
-        sentinel.className = 'loading';
-        sentinel.textContent = 'Scroll down to load more...';
-        chat.appendChild(sentinel);
-      } else {
-        const doneMsg = document.createElement('div');
-        doneMsg.className = 'msg-count';
-        doneMsg.textContent = 'All messages loaded';
-        chat.appendChild(doneMsg);
-      }
+      const sentinel = document.createElement('div');
+      sentinel.id = 'loadMoreSentinel';
+      sentinel.className = 'loading';
+      sentinel.textContent = 'Scroll down to check for new messages...';
+      chat.appendChild(sentinel);
     }
 
-    // Attach intersection observer to sentinel for lazy loading
+    // Attach intersection observer to sentinel for checking new messages
     function attachScrollObserver(cacheKey) {
       const sentinel = document.getElementById('loadMoreSentinel');
       if (!sentinel) return;
 
       scrollObserver = new IntersectionObserver((entries) => {
         if (entries[0].isIntersecting) {
-          loadMoreMessages(cacheKey);
+          checkForNewMessages(cacheKey);
         }
       }, { threshold: 0.1 });
 
       scrollObserver.observe(sentinel);
     }
 
-    // Fetch next page and append messages
-    async function loadMoreMessages(cacheKey) {
+    // Fetch messages from last message timestamp onwards
+    async function checkForNewMessages(cacheKey) {
       const entry = messageCache[cacheKey];
-      if (!entry || entry.done || isLoadingMore) return;
+      if (!entry || isLoadingMore) return;
 
       isLoadingMore = true;
       const sentinel = document.getElementById('loadMoreSentinel');
-      if (sentinel) sentinel.textContent = 'Loading...';
+      if (sentinel) sentinel.textContent = 'Checking for new messages...';
 
       const [mobile, accountId] = cacheKey.split(':');
+
+      // Get last message's created_at timestamp
+      const lastMessage = entry.messages.length > 0 ? entry.messages[entry.messages.length - 1] : null;
+      const lastTimestamp = lastMessage ? lastMessage.created_at : '1970-01-01T00:00:00Z';
 
       try {
         const params = new URLSearchParams();
         if (mobile) params.set('mobile', mobile);
         if (accountId) params.set('accountId', accountId);
         params.set('token', authToken);
-        params.set('page', entry.nextPage);
+        params.set('from_created_at', lastTimestamp);
         params.set('size', PAGE_SIZE);
 
         const res = await fetch(`${BASE_URL}?${params.toString()}`);
@@ -758,27 +753,43 @@
         const newMsgs = await res.json();
 
         if (!newMsgs || newMsgs.length === 0) {
-          entry.done = true;
-          if (sentinel) {
-            sentinel.remove();
-            const chat = document.getElementById('chat');
-            const doneMsg = document.createElement('div');
-            doneMsg.className = 'msg-count';
-            doneMsg.textContent = 'All messages loaded';
-            chat.appendChild(doneMsg);
-          }
+          if (sentinel) sentinel.textContent = 'No new messages';
+          setTimeout(() => {
+            if (sentinel) sentinel.textContent = 'Scroll down to check for new messages...';
+          }, 2000);
+          isLoadingMore = false;
           return;
         }
 
-        // Merge new messages and re-sort globally
-        entry.messages.push(...newMsgs);
+        // Filter out messages we already have (in case of duplicates)
+        const existingIds = new Set(entry.messages.map(m => m.created_at));
+        const trulyNewMsgs = newMsgs.filter(m => !existingIds.has(m.created_at));
+
+        if (trulyNewMsgs.length === 0) {
+          if (sentinel) sentinel.textContent = 'No new messages';
+          setTimeout(() => {
+            if (sentinel) sentinel.textContent = 'Scroll down to check for new messages...';
+          }, 2000);
+          isLoadingMore = false;
+          return;
+        }
+
+        // Sort new messages by created_at before appending to DOM
+        trulyNewMsgs.sort((a, b) => {
+          if (a.created_at < b.created_at) return -1;
+          if (a.created_at > b.created_at) return 1;
+          return 0;
+        });
+
+        // Add new messages to cache
+        entry.messages.push(...trulyNewMsgs);
         entry.messages.sort((a, b) => {
           if (a.created_at < b.created_at) return -1;
           if (a.created_at > b.created_at) return 1;
           return 0;
         });
 
-        // Append only new messages to DOM (those not already rendered)
+        // Append new messages to DOM
         const chat = document.getElementById('chat');
         const lastRenderedDate = allMessageElements.length > 0 && entry.messages.length > 0
           ? new Date(entry.messages[allMessageElements.length - 1].created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -786,7 +797,7 @@
 
         let lastDate = lastRenderedDate;
 
-        newMsgs.forEach((msg) => {
+        trulyNewMsgs.forEach((msg) => {
           const date = new Date(msg.created_at);
           const dateStr = date.toLocaleDateString('en-IN', {
             day: '2-digit', month: 'short', year: 'numeric'
@@ -853,18 +864,8 @@
           countMsg.textContent = `${entry.messages.length} messages loaded`;
         }
 
-        // Check if more pages exist
-        if (newMsgs.length < PAGE_SIZE) {
-          entry.done = true;
-          sentinel.remove();
-          const doneMsg = document.createElement('div');
-          doneMsg.className = 'msg-count';
-          doneMsg.textContent = 'All messages loaded';
-          chat.appendChild(doneMsg);
-        } else {
-          entry.nextPage++;
-          sentinel.textContent = 'Scroll down to load more...';
-        }
+        // Reset sentinel text
+        if (sentinel) sentinel.textContent = 'Scroll down to check for new messages...';
 
       } catch (err) {
         if (sentinel) sentinel.textContent = `Error: ${err.message}`;
